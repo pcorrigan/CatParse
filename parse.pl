@@ -1,12 +1,21 @@
-#!/usr/bin/perl -w
+#!perl -w
 use strict;
+use Path::Tiny;
+my $filename = shift or die "Usage: $0 FILENAME";
+my $fh = path($filename)->edit_utf8( \&callback );
 
+sub callback {
+  s/(\w{4})([.,-·\s])?$/$1¥\n/gm unless /¥/;
+}
+
+binmode STDOUT, ":utf8";
+$fh = path($filename)->openr_utf8;
 #no warnings 'uninitialized';
 my ( $running_title, $running_location );
 while (
     defined(
         my $record =
-          do { local $/ = '¥'; <> }
+          do { local $/ = '¥'; <$fh> }
     )
   )
 {
