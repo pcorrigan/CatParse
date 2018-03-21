@@ -1,12 +1,16 @@
 #!perl -w
 use strict;
 use Path::Tiny;
-my $filename = shift or die "Usage: $0 FILENAME";
-my $fh = path($filename)->edit_utf8( \&callback );
-
-sub callback {
-  s/(\w{4})([.,-·\s])?$/$1¥\n/gm unless /¥/;
+my $filename = shift or die "Usage: $0 FILENAME [-d debug mode]";
+my $debug = shift;
+my $fh = path($filename)->edit_utf8( \&delimit);
+  # $fh->edit_utf8( \&delimit_where_date );
+no warnings 'uninitialized';
+sub delimit {
+  s/((\b\w{4})([.,-·\s])?$)|(\-\-\s*)$/$1¥\n/gm unless /¥/;
 }
+
+print $debug," mode\n----------\n" if $debug;
 
 binmode STDOUT, ":utf8";
 $fh = path($filename)->openr_utf8;
@@ -20,7 +24,7 @@ while (
   )
 {
     $record = cleanup($record);
-    print "\nOriginal record $. -> $record";
+    print "\nOriginal record $. -> $record" if $debug;
     if ( my ($embolded_title_prefix) =
         $record =~ m/\A\s*([\p{Uppercase_Letter}]{3,})/ )
     { # e.g. ABÆLARDI from a title like ABÆLARDI Filosophi et Theologi Abates...
@@ -48,25 +52,29 @@ sub handle_title {
     $title = trim($title);
     $title =~ s/\A[^\w]+(\w+.*)\z/$1/;
     if ( defined($title_prefix) ) {
-        print "\nParsed record -> Title:[$title_prefix... $title]\t";
+        if ($debug) {print "\nParsed record -> Title:[$title_prefix... $title]\t" } else {
+          print $title_prefix,"... $title\t";
+        }
     }
     else {
-        print "\nParsed record -> Title:[$title]\t";
-    }
+        if ($debug) {print "\nParsed record -> Title:[$title]\t"} else { print $title,"\t" }
+        
     return;
-}
+    }
+ }
+
 
 sub handle_volume {
     my $volume = shift;
     $volume = trim($volume);
-    print "Volume:[$volume]\t";
+    if ($debug) { print "Volume:[$volume]\t"} else {print $volume,"\t"}
     return;
 }
 
 sub handle_format {
     my $format = shift;
     $format = trim($format);
-    print "Format:[$format]\t";
+    if ($debug) {print "Format:[$format]\t"} else {print $format, "\t"}
     return;
 }
 
@@ -74,10 +82,10 @@ sub handle_location {
     my ($location) = @_;
     if ( defined $location and trim($location) !~ m/ditto/ ) {
         $running_location = $location;
-        print "Location:[$location]\t";
+        if ($debug) { print "Location:[$location]\t"} else {print $location, "\t"}
     }
     else {
-        print "Location:[$running_location]\t";
+        if ($debug) { print "Location:[$running_location]\t"} else {print $running_location,"\t"}
     }
     return;
 }
@@ -85,7 +93,7 @@ sub handle_location {
 sub handle_year {
     my $year = shift;
     $year = trim($year);
-    print "Year:[$year]\n\n-----------------------------\n";
+    if ($debug) { print "Year:[$year]\n\n-----------------------------\n"} else {print $year,"\n"} 
     return;
 }
 
@@ -100,11 +108,12 @@ sub trim {
 
 sub cleanup {
     my $record = shift;
-    $record =~ s/[\n\r\f]//gsm;
+    $record =~ s/[|\n\r\f]//gsm;
     $record =~ s/\s{2,}/ /gsm;
     $record =~ s/\s{2,}/ /gsm;
     $record =~ s/i vol\./1 vol./;
     $record =~ s/s vol\./5 vol./;
     $record =~ s/\bSvo\./5vo/m;
+    $record =~ s/\t/ /gsm;
     return $record;
 }
